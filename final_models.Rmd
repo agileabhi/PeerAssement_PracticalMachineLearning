@@ -1,0 +1,152 @@
+Modeling of class attribution of samples following monitoring of their physical exercices with accelerometers
+========================================================
+
+
+```{r}
+# load libaries
+library(caret);library(kernlab);library(ggplot2)
+library(rattle)
+# read in data
+data_train <- read.table("pml-training.csv", sep = ",", header = TRUE)
+data_unknown <- read.table("pml-testing.csv", sep= ",", header = TRUE)
+
+# I choose to partition the data_train in a training set and a testing set for cross validation 
+# of my modeling
+
+set.seed(8484)
+inTrain <- createDataPartition(data_train$classe, p=0.7, list=FALSE)
+# I remove the 1:7 variables in the data sets both training and testing because they are not related
+# with the measurements or predictors I am interested to keep as predictors
+training <- data_train[inTrain, 8:160]
+testing <- data_train[-inTrain,8:160]
+classe <- training$classe
+# I check dimensions in training and testing sets and homogeneity by the proportions of classes
+# in each sets
+dim(training);dim(testing)
+prop.table(table(training$classe))
+prop.table(table(testing$classe))
+dim(data_unknown)
+head(data_unknown,20)
+```
+# I realize that the data set containing the 20 individuals that we have to predict the class A, B, C, D end E 
+# "data_unknown" contains more than 50% of predictors (variables in columns) that have NA values for all the 20 samples.
+# I decide to remove in my modeling the predictors that have all NA values in the data_unknown set and keep them to construct a model
+# with training and testing sets.  This action hopefully will  have for effect to reduce considerably the time to build models on my computer
+# and focuse on important measured predictors.
+
+
+# Modeling N°1: classification Tree with "rpart" from caret package
+```{r}
+# I chose first a classification Tree rpart model  "rpart" form caret package with classe as Outcome and all predictors
+# with options prox and importance to get informations of predictors importance
+du <- data_unknown
+du<- du[,colSums(is.na(du))<nrow(du)]
+dim(du)
+colnames(du)
+# keep only predictors that have defined values in the data_unknown data set (20 samples to classify)
+training_f <- training[,colnames(training)%in%colnames(du)]
+testing_f <- testing[,colnames(testing)%in%colnames(du)]
+
+# add the column class after predictors filtereing
+training_f <- cbind(training_f, classe)
+names(training_f)
+classe <- testing$classe
+testing_f <- cbind(testing_f, classe)
+names(testing_f)
+#check dimensions
+dim(training_f)
+dim(testing_f)
+
+# rpart model
+modelFit_rpart<- train(classe ~., data= training_f, method = "rpart")
+modelFit_rpart
+```
+CART 
+
+13737 samples
+   52 predictors
+    5 classes: 'A', 'B', 'C', 'D', 'E' 
+
+No pre-processing
+Resampling: Bootstrapped (25 reps) 
+
+Summary of sample sizes: 13737, 13737, 13737, 13737, 13737, 13737, ... 
+
+Resampling results across tuning parameters:
+
+  cp      Accuracy  Kappa  Accuracy SD  Kappa SD
+  0.0338  0.513     0.365  0.0354       0.0571  
+  0.0591  0.406     0.193  0.0593       0.0987  
+  0.118   0.35      0.101  0.0329       0.0514  
+
+Accuracy was used to select the optimal model using  the largest value.
+The final value used for the model was cp = 0.0338.
+
+```{r}
+modelFit_rpart$finalModel
+```
+n= 13737 
+
+node), split, n, loss, yval, (yprob)
+      * denotes terminal node
+
+ 1) root 13737 9831 A (0.28 0.19 0.17 0.16 0.18)  
+   2) roll_belt< 130.5 12561 8665 A (0.31 0.21 0.19 0.18 0.11)  
+     4) pitch_forearm< -33.65 1089    8 A (0.99 0.0073 0 0 0) *
+     5) pitch_forearm>=-33.65 11472 8657 A (0.25 0.23 0.21 0.2 0.12)  
+      10) magnet_dumbbell_y< 439.5 9724 6963 A (0.28 0.18 0.24 0.19 0.11)  
+        20) roll_forearm< 122.5 6055 3590 A (0.41 0.18 0.19 0.16 0.061) *
+        21) roll_forearm>=122.5 3669 2468 C (0.081 0.18 0.33 0.23 0.18) *
+      11) magnet_dumbbell_y>=439.5 1748  856 B (0.031 0.51 0.041 0.23 0.19) *
+   3) roll_belt>=130.5 1176   10 E (0.0085 0 0 0 0.99) *
+   
+```{r fig.width=7, fig.height=6}
+plot(modelFit_rpart$finalModel, uniform=TRUE, main="Classification Tree")
+text(modelFit_rpart$finalModel, use.n=TRUE, all=TRUE, cex=0.8)
+fancyRpartPlot(modelFit_rpart$finalModel)
+```
+
+# Modeling N°2: classification Tree with "rf" , Random Forest from caret package
+```{r}
+# I chose a Random Forest model "rf" form caret package with classe as Outcome and all predictors filtered as before
+# with options prox and importance to get informations of predictors importance
+
+# modelFit_rf <- train(classe ~., data= training_f, method = "rf", prox= TRUE, importance=TRUE)
+# ABANDONED because to slow (more than 5h of running)
+```  
+
+# Modeling N°3: classification Tree with Support Vector Machine  , "svmRadial"" from caret package
+```{r}
+# I chose a Random Forest model "rf" form caret package with classe as Outcome and all predictors filtered as before
+# with options prox and importance to get informations of predictors importance
+descrCorr <- cor(training_f[,1:52])
+descrCorr
+descrCorrhighCorr <-findCorrelation(descrCorr, 0.90)
+highCorr <-findCorrelation(descrCorr, 0.90)
+highCorr
+```
+[1] 10  1  9  8 19 46 31
+
+```
+```{r}
+# filtering and preprocessing of training and testing sets for SVM
+# remove higly correlaated predictors
+training_f_cor <- training_f[, -highCorr]
+dim(training_f_cor)
+testing_f_cor <- testing_f[, -highCorr]
+dim(testing_f_cor)
+xTrans <- preProcess(training_f_cor[1:45])
+training_f_cor <- predict(xTrans, training_f_cor[1:45])
+head(training_f_cor)
+testing_f_cor <- predict(xTrans, testing_f_cor[1:45])
+head(testing_f_cor)
+
+# SVM modeling
+bootControl <- trainControl(number = 200)
+set.seed(2)
+# aborted due to too long duration
+# svmFit <- train(training_f_cor,training_f$classe, method = "svmRadial",tuneLength=5, trControl = bootControl, scale=FALSE)
+```
+
+  
+
