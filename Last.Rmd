@@ -1,0 +1,43 @@
+Title
+========================================================
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring web pages (click the **Help** toolbar button for more details on using R Markdown).
+
+When you click the **Knit HTML** button a web page will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+# load libaries
+library(caret);library(kernlab);library(ggplot2)
+# read in data
+data_train <- read.table("pml-training.csv", sep = ",", header = TRUE)
+data_unknown <- read.table("pml-testing.csv", sep= ",", header = TRUE)
+
+# i choose to partition the data_train in a training set and a testing set for cross validation 
+# of my Rnadom Forest model
+set.seed(8484)
+inTrain <- createDataPartition(data_train$classe, p=0.7, list=FALSE)
+# I remove the 1:7 variables in the data sets both training and testing because they are not related
+# with the measurements or predictors I am interested to keep as predictors
+training <- data_train[inTrain, 8:160]
+testing <- data_train[-inTrain,8:160]
+
+# I check dimensions in training and testing sets and homogeneity by the proportions of classes
+# in each sets
+dim(training);dim(testing)
+prop.table(table(training$classe))
+prop.table(table(testing$classe))
+```
+
+
+```{r}
+# I chose a Random Forest model "rf" form caret package with classe as Outcome and all predictors
+# with options prox and importance to get informations of predictors importance
+
+modelFit_rf <- train(classe ~., data= training, method = "rf", prox= TRUE, importance=TRUE)
+```
+You can also embed plots, for example:
+
+```{r fig.width=7, fig.height=6}
+plot(cars)
+```
+
