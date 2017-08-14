@@ -2,6 +2,7 @@ Modeling of class attribution of samples following monitoring of their physical 
 ========================================================
 
 
+
 ```{r}
 # load libaries
 library(caret);library(kernlab);library(ggplot2)
@@ -15,8 +16,8 @@ data_unknown <- read.table("pml-testing.csv", sep= ",", header = TRUE)
 
 set.seed(8484)
 inTrain <- createDataPartition(data_train$classe, p=0.7, list=FALSE)
-# I remove the 1:7 variables in the data sets both training and testing because they are not related
-# with the measurements or predictors I am interested to keep as predictors
+# createDataPartition will give 70% of total data rows with same class ratio as in given data set.
+# I removed the column no 1 to 7 in both the training and testing data sets because they will not contribute to prediction.  
 training <- data_train[inTrain, 8:160]
 testing <- data_train[-inTrain,8:160]
 classe <- training$classe
